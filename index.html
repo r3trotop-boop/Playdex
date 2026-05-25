@@ -1,96 +1,36 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <title>Playdex IO</title>
-
 <style>
-body {
-  margin: 0;
-  overflow: hidden;
-  background: #060610;
-  font-family: Arial;
-}
-
-canvas { display: block; }
-
-#menu {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle, #1a1a2e, #000);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: white;
-}
-
-input {
-  padding: 10px;
-  font-size: 16px;
-  border-radius: 8px;
-  border: none;
-  text-align: center;
-}
-
-button {
-  margin-top: 10px;
-  padding: 12px 20px;
-  border: none;
-  border-radius: 8px;
-  background: limegreen;
-  cursor: pointer;
-}
-
-#hud {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  color: white;
-}
-
-#lb {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  color: white;
-  background: rgba(0,0,0,0.4);
-  padding: 10px;
-  border-radius: 10px;
-}
+body { margin:0; overflow:hidden; background:#0b0b12; font-family:Arial; }
+canvas { display:block; }
+#hud { position:absolute; top:10px; left:10px; color:white; }
 </style>
 </head>
-
 <body>
 
-<div id="menu">
-  <h1>Playdex IO</h1>
-  <input id="nameInput" placeholder="Enter name">
-  <button onclick="startGame()">Start</button>
-</div>
-
+<canvas id="c"></canvas>
 <div id="hud"></div>
-<div id="lb"></div>
-
-<canvas id="game"></canvas>
 
 <script>
-const c = document.getElementById("game");
+const c = document.getElementById("c");
 const ctx = c.getContext("2d");
 
 c.width = innerWidth;
 c.height = innerHeight;
 
+// WORLD
 const world = { w: 3000, h: 3000 };
-const cam = { x: 0, y: 0 };
 
-let running = false;
+// CAMERA
+const cam = { x:0, y:0 };
 
-// PLAYER (ALWAYS SAFE)
-let player = {
-  x: 1500,
-  y: 1500,
+// PLAYER (FORCED SAFE SPAWN)
+const player = {
+  x: world.w/2,
+  y: world.h/2,
   r: 20,
   mass: 20,
   name: "Player"
@@ -103,162 +43,122 @@ addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
 
 // FOOD
 const food = [];
-for (let i = 0; i < 500; i++) food.push(makeFood());
-
-function makeFood() {
-  return {
-    x: Math.random() * world.w,
-    y: Math.random() * world.h,
+for(let i=0;i<500;i++){
+  food.push({
+    x: Math.random()*world.w,
+    y: Math.random()*world.h,
     r: 3
-  };
+  });
 }
 
-// NAME SYSTEM
-const names = ["Noob", "Pro", "Shadow", "Pixel", "King", "Lil", "Big", "Mega", "Xx", "Ultra"];
+// NAMES
+const names = ["Noob","Pro","Shadow","Pixel","King","Lil","Mega","Ultra","Xx","Bot"];
 
-function randName() {
+function randName(){
   return names[Math.floor(Math.random()*names.length)] + Math.floor(Math.random()*99);
 }
 
-// BOTS (SAFE CREATION)
+// BOTS (50)
 const bots = [];
-for (let i = 0; i < 50; i++) {
+for(let i=0;i<50;i++){
   bots.push({
-    x: Math.random() * world.w,
-    y: Math.random() * world.h,
-    mass: 10 + Math.random() * 30,
-    speed: 1.5 + Math.random(),
+    x: Math.random()*world.w,
+    y: Math.random()*world.h,
+    mass: 10+Math.random()*30,
+    speed: 1.5+Math.random(),
     name: randName()
   });
 }
 
-// START
-function startGame() {
-  const n = document.getElementById("nameInput").value;
-  player.name = n || randName();
-
-  document.getElementById("menu").style.display = "none";
-  running = true;
-  loop();
-}
-
 // UTIL
-function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
-function size(m){return 5 + Math.sqrt(m)*3;}
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function size(m){ return 5 + Math.sqrt(m)*3; }
 
-// PLAYER
-function updatePlayer() {
+// PLAYER UPDATE
+function updatePlayer(){
+  let sp = 4;
 
-  if (keys["w"] || keys["arrowup"]) player.y -= 4;
-  if (keys["s"] || keys["arrowdown"]) player.y += 4;
-  if (keys["a"] || keys["arrowleft"]) player.x -= 4;
-  if (keys["d"] || keys["arrowright"]) player.x += 4;
+  if(keys["w"]||keys["arrowup"]) player.y -= sp;
+  if(keys["s"]||keys["arrowdown"]) player.y += sp;
+  if(keys["a"]||keys["arrowleft"]) player.x -= sp;
+  if(keys["d"]||keys["arrowright"]) player.x += sp;
 
-  player.x = Math.max(0, Math.min(world.w, player.x));
-  player.y = Math.max(0, Math.min(world.h, player.y));
+  player.x = Math.max(0,Math.min(world.w,player.x));
+  player.y = Math.max(0,Math.min(world.h,player.y));
 
   // eat food
-  for (let i = food.length - 1; i >= 0; i--) {
-    if (dist(player, food[i]) < size(player.mass)) {
-      player.mass += 1;
-      food[i] = makeFood();
-    }
-  }
-
-  // player vs bots
-  for (let i = bots.length - 1; i >= 0; i--) {
-    let b = bots[i];
-
-    if (size(player.mass) > size(b.mass) * 1.2 && dist(player,b) < size(player.mass)) {
-      player.mass += b.mass * 0.7;
-      bots.splice(i,1);
-      bots.push(createBot());
-    }
-
-    if (size(b.mass) > size(player.mass) * 1.2 && dist(player,b) < size(b.mass)) {
-      player.mass = 20;
-      player.x = 1500;
-      player.y = 1500;
+  for(let i=food.length-1;i>=0;i--){
+    if(dist(player,food[i]) < size(player.mass)){
+      player.mass++;
+      food[i].x = Math.random()*world.w;
+      food[i].y = Math.random()*world.h;
     }
   }
 }
 
-// SAFE BOT CREATION
-function createBot(){
-  return {
-    x: Math.random() * world.w,
-    y: Math.random() * world.h,
-    mass: 10 + Math.random() * 30,
-    speed: 1.5 + Math.random(),
-    name: randName()
-  };
-}
-
-// BOTS AI (SIMPLE + SAFE)
+// BOT AI (simple safe)
 function updateBots(){
-  for (let b of bots) {
-
+  for(let b of bots){
     let target = food[0];
 
-    for (let f of food) {
-      if (dist(b,f) < dist(b,target)) target = f;
+    for(let f of food){
+      if(dist(b,f) < dist(b,target)) target = f;
     }
 
-    let a = Math.atan2(target.y - b.y, target.x - b.x);
-    b.x += Math.cos(a) * b.speed;
-    b.y += Math.sin(a) * b.speed;
+    let a = Math.atan2(target.y-b.y, target.x-b.x);
+    b.x += Math.cos(a)*b.speed;
+    b.y += Math.sin(a)*b.speed;
 
-    // eat food
-    for (let i = food.length - 1; i >= 0; i--) {
-      if (dist(b, food[i]) < size(b.mass)) {
+    for(let i=food.length-1;i>=0;i--){
+      if(dist(b,food[i]) < size(b.mass)){
         b.mass += 0.5;
-        food[i] = makeFood();
+        food[i].x = Math.random()*world.w;
+        food[i].y = Math.random()*world.h;
       }
     }
   }
 }
 
-// CAMERA
+// CAMERA (SAFE)
 function updateCamera(){
-  cam.x += (player.x - innerWidth/2 - cam.x) * 0.08;
-  cam.y += (player.y - innerHeight/2 - cam.y) * 0.08;
+  cam.x = player.x - innerWidth/2;
+  cam.y = player.y - innerHeight/2;
 }
 
-// DRAW (PLAYER FIXED HERE)
+// DRAW (PLAYER ALWAYS HERE)
 function draw(){
-  ctx.fillStyle = "#060610";
-  ctx.fillRect(0,0,c.width,c.height);
+  ctx.clearRect(0,0,c.width,c.height);
 
   ctx.save();
   ctx.translate(-cam.x,-cam.y);
 
-  // FOOD
-  for (let f of food) {
-    ctx.fillStyle = "red";
+  // food
+  ctx.fillStyle="red";
+  for(let f of food){
     ctx.beginPath();
     ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
     ctx.fill();
   }
 
-  // BOTS
-  for (let b of bots) {
-    ctx.fillStyle = "cyan";
+  // bots
+  ctx.fillStyle="cyan";
+  for(let b of bots){
     ctx.beginPath();
     ctx.arc(b.x,b.y,size(b.mass),0,Math.PI*2);
     ctx.fill();
 
-    ctx.fillStyle = "white";
-    ctx.font = "12px Arial";
+    ctx.fillStyle="white";
     ctx.fillText(b.name,b.x-10,b.y-15);
+    ctx.fillStyle="cyan";
   }
 
-  // PLAYER (NEVER BREAKS)
-  ctx.fillStyle = "lime";
+  // PLAYER (FORCED VISIBLE)
+  ctx.fillStyle="lime";
   ctx.beginPath();
   ctx.arc(player.x,player.y,size(player.mass),0,Math.PI*2);
   ctx.fill();
 
-  ctx.fillStyle = "white";
+  ctx.fillStyle="white";
   ctx.fillText(player.name,player.x-10,player.y-15);
 
   ctx.restore();
@@ -269,15 +169,14 @@ function draw(){
 
 // LOOP
 function loop(){
-  if (!running) return;
-
   updatePlayer();
   updateBots();
   updateCamera();
   draw();
-
   requestAnimationFrame(loop);
 }
+
+loop();
 </script>
 
 </body>
