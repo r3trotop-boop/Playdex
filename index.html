@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mini IO Game</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0f0f0f;
+  }
+  canvas {
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// player
+const player = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  size: 20,
+  speed: 4,
+  score: 0
+};
+
+// food
+function spawnFood() {
+  return {
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: 6
+  };
+}
+
+let food = spawnFood();
+
+// controls
+const keys = {};
+window.addEventListener("keydown", e => keys[e.key] = true);
+window.addEventListener("keyup", e => keys[e.key] = false);
+
+function update() {
+  if (keys["w"] || keys["ArrowUp"]) player.y -= player.speed;
+  if (keys["s"] || keys["ArrowDown"]) player.y += player.speed;
+  if (keys["a"] || keys["ArrowLeft"]) player.x -= player.speed;
+  if (keys["d"] || keys["ArrowRight"]) player.x += player.speed;
+
+  // keep inside screen
+  player.x = Math.max(0, Math.min(canvas.width, player.x));
+  player.y = Math.max(0, Math.min(canvas.height, player.y));
+
+  // collision
+  const dx = player.x - food.x;
+  const dy = player.y - food.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < player.size) {
+    player.size += 2;
+    player.score++;
+    food = spawnFood();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = "#0f0f0f";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // food
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(food.x, food.y, food.size, 0, Math.PI * 2);
+  ctx.fill();
+
+  // player
+  ctx.fillStyle = "lime";
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
+  ctx.fill();
+
+  // score
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + player.score, 20, 30);
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
