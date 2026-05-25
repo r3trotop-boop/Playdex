@@ -2,40 +2,19 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Playdex IO Smooth</title>
+<title>Playdex IO</title>
 
 <style>
 body{
   margin:0;
   overflow:hidden;
-  background:#050514;
+  background:#050518;
   font-family:Arial;
 }
 
 canvas{display:block;}
 
-/* BIG HUD */
-#hud{
-  position:absolute;
-  top:15px;
-  left:15px;
-  color:white;
-  font-size:18px;
-}
-
-#lb{
-  position:absolute;
-  top:15px;
-  right:15px;
-  width:260px;
-  padding:15px;
-  background:rgba(0,0,0,0.5);
-  border-radius:12px;
-  color:white;
-  font-size:16px;
-}
-
-/* MENU BIGGER */
+/* MENU */
 #menu{
   position:absolute;
   width:100%;
@@ -51,14 +30,36 @@ canvas{display:block;}
 input,button{
   padding:12px;
   margin:6px;
-  border-radius:10px;
   border:none;
+  border-radius:10px;
   font-size:16px;
 }
 
 button{
   background:limegreen;
   cursor:pointer;
+}
+
+/* HUD */
+#hud{
+  position:absolute;
+  top:15px;
+  left:15px;
+  color:white;
+  font-size:18px;
+}
+
+/* LEADERBOARD */
+#lb{
+  position:absolute;
+  top:15px;
+  right:15px;
+  width:260px;
+  padding:15px;
+  background:rgba(0,0,0,0.5);
+  border-radius:12px;
+  color:white;
+  font-size:16px;
 }
 </style>
 </head>
@@ -67,9 +68,9 @@ button{
 
 <div id="menu">
   <h1>PLAYDEX IO</h1>
-  <input id="name" placeholder="Name">
+  <input id="name" placeholder="Enter name">
   <input type="color" id="color" value="#00ff00">
-  <button onclick="start()">Start</button>
+  <button onclick="start()">Start Game</button>
 </div>
 
 <div id="hud"></div>
@@ -87,18 +88,18 @@ c.height=innerHeight;
 // WORLD
 const world={w:4000,h:4000};
 
-// CAMERA (SMOOTH)
+// CAMERA
 const cam={x:0,y:0};
 
 // PLAYER
-const player={
+let player={
   x:world.w/2,
   y:world.h/2,
   vx:0,
   vy:0,
   mass:20,
-  color:"#00ff00",
-  name:"Player"
+  name:"Player",
+  color:"#00ff00"
 };
 
 // INPUT
@@ -108,17 +109,13 @@ addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
 // FOOD
 const food=[];
-for(let i=0;i<700;i++) food.push(makeFood());
+for(let i=0;i<700;i++) food.push(spawnFood());
 
-function makeFood(){
-  return{
-    x:Math.random()*world.w,
-    y:Math.random()*world.h,
-    r:3
-  };
+function spawnFood(){
+  return {x:Math.random()*world.w,y:Math.random()*world.h,r:3};
 }
 
-// NAME SYSTEM
+// NAMES
 const names=["Shadow","Pixel","Nova","Blaze","King","Noob","Ghost","Ultra","Pro","Xx"];
 
 function randName(){
@@ -150,17 +147,15 @@ function start(){
   loop();
 }
 
-// UTIL
+// UTILS
 function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 function size(m){return 5+Math.sqrt(m)*3;}
 
-// ==========================
-// PLAYER (SMOOTH + WEIGHTED)
-// ==========================
+// PLAYER
 function updatePlayer(){
-
   let ax=0,ay=0;
-  let sp=0.5 + size(player.mass)*0.01; // heavier = slower
+
+  let sp=0.5+size(player.mass)*0.01;
 
   if(keys["w"]||keys["arrowup"]) ay-=sp;
   if(keys["s"]||keys["arrowdown"]) ay+=sp;
@@ -176,29 +171,26 @@ function updatePlayer(){
   player.x=Math.max(0,Math.min(world.w,player.x));
   player.y=Math.max(0,Math.min(world.h,player.y));
 
-  // eat food
   for(let i=food.length-1;i>=0;i--){
     if(dist(player,food[i])<size(player.mass)){
-      player.mass+=1;
-      food[i]=makeFood();
+      player.mass++;
+      food[i]=spawnFood();
     }
   }
 
-  // bots interaction
   for(let i=bots.length-1;i>=0;i--){
     let b=bots[i];
 
     let ps=size(player.mass);
     let bs=size(b.mass);
-    let d=dist(player,b);
 
-    if(ps>bs*1.2 && d<ps){
+    if(ps>bs*1.15 && dist(player,b)<ps){
       player.mass+=b.mass*0.8;
       bots.splice(i,1);
       bots.push(makeBot());
     }
 
-    if(bs>ps*1.2 && d<bs){
+    if(bs>ps*1.15 && dist(player,b)<bs){
       player.mass=20;
       player.x=world.w/2;
       player.y=world.h/2;
@@ -206,15 +198,15 @@ function updatePlayer(){
   }
 }
 
-// ==========================
-// BOT AI (SMOOTH + NO STUCK)
-// ==========================
+// BOT AI (RADIUS + SMART HUNT/FLEE)
 function updateBots(){
+
+  const R=500;
 
   for(let b of bots){
 
-    let bx=0,by=0;
-    let bS=size(b.mass);
+    let ax=0,ay=0;
+    let bs=size(b.mass);
 
     let target=null;
     let threat=null;
@@ -224,35 +216,36 @@ function updateBots(){
 
       let d=dist(b,o);
 
-      if(bS>size(o.mass)*1.2 && d<500) target=o;
-      if(size(o.mass)>bS*1.2 && d<500) threat=o;
+      if(bs>size(o.mass)*1.15 && d<R) target=o;
+      if(size(o.mass)>bs*1.15 && d<R) threat=o;
     }
 
     let pd=dist(b,player);
 
-    if(bS>size(player.mass)*1.2 && pd<500) target=player;
-    if(size(player.mass)>bS*1.2 && pd<500) threat=player;
+    if(bs>size(player.mass)*1.15 && pd<R) target=player;
+    if(size(player.mass)>bs*1.15 && pd<R) threat=player;
 
     if(threat){
       let a=Math.atan2(b.y-threat.y,b.x-threat.x);
-      bx+=Math.cos(a)*2;
-      by+=Math.sin(a)*2;
-    }else if(target){
+      ax+=Math.cos(a)*2.2;
+      ay+=Math.sin(a)*2.2;
+    }
+    else if(target){
       let a=Math.atan2(target.y-b.y,target.x-b.x);
-      bx+=Math.cos(a)*1.5;
-      by+=Math.sin(a)*1.5;
-    }else{
-      bx+=(Math.random()-0.5)*0.5;
-      by+=(Math.random()-0.5)*0.5;
+      ax+=Math.cos(a)*1.6;
+      ay+=Math.sin(a)*1.6;
+    }
+    else{
+      ax+=(Math.random()-0.5)*0.6;
+      ay+=(Math.random()-0.5)*0.6;
     }
 
-    b.vx=(b.vx+bx)*0.9;
-    b.vy=(b.vy+by)*0.9;
+    b.vx=(b.vx+ax)*0.88;
+    b.vy=(b.vy+ay)*0.88;
 
     b.x+=b.vx*b.speed;
     b.y+=b.vy*b.speed;
 
-    // FOOD MAGNET (soft attraction)
     for(let f of food){
       let d=dist(b,f);
       if(d<120){
@@ -262,34 +255,39 @@ function updateBots(){
     }
 
     for(let i=food.length-1;i>=0;i--){
-      if(dist(b,food[i])<bS){
+      if(dist(b,food[i])<bs){
         b.mass+=0.5;
-        food[i]=makeFood();
+        food[i]=spawnFood();
+      }
+    }
+
+    for(let i=bots.length-1;i>=0;i--){
+      let o=bots[i];
+      if(o===b) continue;
+
+      if(bs>size(o.mass)*1.15 && dist(b,o)<bs){
+        b.mass+=o.mass*0.7;
+        bots.splice(i,1);
+        bots.push(makeBot());
       }
     }
   }
 }
 
-// ==========================
-// CAMERA SMOOTH
-// ==========================
+// CAMERA
 function updateCam(){
   cam.x+=(player.x-innerWidth/2-cam.x)*0.08;
   cam.y+=(player.y-innerHeight/2-cam.y)*0.08;
 }
 
-// ==========================
 // DRAW
-// ==========================
 function draw(){
-
-  ctx.fillStyle="#050514";
+  ctx.fillStyle="#050518";
   ctx.fillRect(0,0,c.width,c.height);
 
   ctx.save();
   ctx.translate(-cam.x,-cam.y);
 
-  // food
   ctx.fillStyle="red";
   for(let f of food){
     ctx.beginPath();
@@ -297,7 +295,6 @@ function draw(){
     ctx.fill();
   }
 
-  // bots
   for(let b of bots){
     ctx.fillStyle=b.color;
     ctx.beginPath();
@@ -310,7 +307,6 @@ function draw(){
     ctx.fillText(b.name,b.x,b.y);
   }
 
-  // player
   ctx.fillStyle=player.color;
   ctx.beginPath();
   ctx.arc(player.x,player.y,size(player.mass),0,Math.PI*2);
@@ -326,17 +322,14 @@ function draw(){
     "Mass: "+Math.floor(player.mass);
 }
 
-// ==========================
-// LEADERBOARD BIGGER
-// ==========================
-function lb(){
-
+// LEADERBOARD
+function leaderboard(){
   let list=[...bots,player]
     .sort((a,b)=>b.mass-a.mass)
     .slice(0,10);
 
   document.getElementById("lb").innerHTML=
-    "<b style='font-size:18px'>TOP 10</b><br>"+
+    "<b>TOP 10</b><br>"+
     list.map((p,i)=>`${i+1}. ${p.name} (${Math.floor(p.mass)})`).join("<br>");
 }
 
@@ -345,7 +338,7 @@ function loop(){
   updatePlayer();
   updateBots();
   updateCam();
-  lb();
+  leaderboard();
   draw();
   requestAnimationFrame(loop);
 }
