@@ -1,3 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Playdex IO</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #0b0b0f;
+    font-family: Arial;
+  }
+
+  canvas {
+    display: block;
+  }
+
+  #menu {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, #1a1a2e, #000);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+  }
+
+  button {
+    padding: 15px 30px;
+    font-size: 20px;
+    border: none;
+    border-radius: 10px;
+    background: limegreen;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <h1>Playdex IO</h1>
+  <button onclick="startGame()">Start</button>
+</div>
+
+<canvas id="game"></canvas>
+
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -6,10 +54,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
 // WORLD
-const world = {
-  width: 3000,
-  height: 3000
-};
+const world = { width: 3000, height: 3000 };
 
 // CAMERA
 const cam = { x: 0, y: 0 };
@@ -23,30 +68,30 @@ const player = {
   score: 0
 };
 
-// ⭐ MORE FOOD SETTINGS
-const MAX_FOOD = 600;   // <- increased dots
+// FOOD SETTINGS (FIXED BIG AMOUNT)
+const MAX_FOOD = 600;
 let foods = [];
 
 function spawnFood() {
   foods.push({
     x: Math.random() * world.width,
     y: Math.random() * world.height,
-    size: 3 + Math.random() * 3
+    size: 4
   });
 }
 
-// fill world with food
 for (let i = 0; i < MAX_FOOD; i++) {
   spawnFood();
 }
 
 // BOTS
 let bots = [];
-for (let i = 0; i < 8; i++) {
+for (let i = 0; i < 10; i++) {
   bots.push({
     x: Math.random() * world.width,
     y: Math.random() * world.height,
-    size: 18
+    size: 18,
+    speed: 2
   });
 }
 
@@ -63,12 +108,7 @@ function startGame() {
   loop();
 }
 
-// COLLISION
-function dist(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-// PLAYER UPDATE
+// PLAYER
 function updatePlayer() {
   if (keys["w"] || keys["ArrowUp"]) player.y -= player.speed;
   if (keys["s"] || keys["ArrowDown"]) player.y += player.speed;
@@ -78,34 +118,31 @@ function updatePlayer() {
   player.x = Math.max(0, Math.min(world.width, player.x));
   player.y = Math.max(0, Math.min(world.height, player.y));
 
-  // eat food
   for (let i = foods.length - 1; i >= 0; i--) {
     let f = foods[i];
     if (Math.hypot(player.x - f.x, player.y - f.y) < player.size) {
       player.size += 0.3;
       player.score++;
       foods.splice(i, 1);
-
-      // respawn instantly so map stays FULL
-      spawnFood();
+      spawnFood(); // ALWAYS KEEP FOOD FULL
     }
   }
 }
 
-// BOT AI (simple)
+// BOTS
 function updateBots() {
   bots.forEach(b => {
     let target = foods[0];
 
-    foods.forEach(f => {
+    for (let f of foods) {
       if (Math.hypot(b.x - f.x, b.y - f.y) < Math.hypot(b.x - target.x, b.y - target.y)) {
         target = f;
       }
-    });
+    }
 
     let angle = Math.atan2(target.y - b.y, target.x - b.x);
-    b.x += Math.cos(angle) * 2;
-    b.y += Math.sin(angle) * 2;
+    b.x += Math.cos(angle) * b.speed;
+    b.y += Math.sin(angle) * b.speed;
   });
 }
 
@@ -128,6 +165,14 @@ function draw() {
     ctx.fillStyle = "red";
     ctx.beginPath();
     ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // BOTS
+  for (let b of bots) {
+    ctx.fillStyle = "cyan";
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -156,3 +201,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 </script>
+
+</body>
+</html>
