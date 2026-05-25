@@ -8,52 +8,72 @@
 body{
   margin:0;
   overflow:hidden;
-  background:#050518;
   font-family:Arial;
+  background:black;
 }
 
-canvas{display:block;}
-
-/* MENU */
+/* animated background */
 #menu{
   position:absolute;
   width:100%;
   height:100%;
-  background:radial-gradient(circle,#1a1a2e,#000);
   display:flex;
   flex-direction:column;
   justify-content:center;
   align-items:center;
   color:white;
+  background: radial-gradient(circle at top, #2a2a6a, #000);
+  animation:bg 6s infinite alternate;
 }
 
-input,button{
+@keyframes bg{
+  0%{filter:hue-rotate(0deg);}
+  100%{filter:hue-rotate(60deg);}
+}
+
+h1{
+  font-size:48px;
+  letter-spacing:3px;
+  text-shadow:0 0 20px cyan;
+}
+
+input{
   padding:12px;
   margin:6px;
   border:none;
   border-radius:10px;
-  font-size:16px;
+  text-align:center;
 }
 
 button{
-  background:limegreen;
+  padding:14px 30px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(90deg,lime,cyan);
+  font-size:16px;
   cursor:pointer;
+  box-shadow:0 0 15px lime;
+  transition:0.2s;
+}
+button:hover{
+  transform:scale(1.05);
 }
 
 /* HUD */
 #hud{
   position:absolute;
-  top:15px;
-  left:15px;
+  top:10px;
+  left:10px;
   color:white;
   font-size:18px;
+  text-shadow:0 0 10px black;
 }
 
-/* LEADERBOARD */
+/* leaderboard */
 #lb{
   position:absolute;
-  top:15px;
-  right:15px;
+  top:10px;
+  right:10px;
   width:260px;
   padding:15px;
   background:rgba(0,0,0,0.5);
@@ -61,6 +81,8 @@ button{
   color:white;
   font-size:16px;
 }
+
+canvas{display:block;}
 </style>
 </head>
 
@@ -68,14 +90,15 @@ button{
 
 <div id="menu">
   <h1>PLAYDEX IO</h1>
+
   <input id="name" placeholder="Enter name">
   <input type="color" id="color" value="#00ff00">
-  <button onclick="start()">Start Game</button>
+
+  <button onclick="start()">START GAME</button>
 </div>
 
 <div id="hud"></div>
 <div id="lb"></div>
-
 <canvas id="c"></canvas>
 
 <script>
@@ -85,11 +108,10 @@ const ctx=c.getContext("2d");
 c.width=innerWidth;
 c.height=innerHeight;
 
-// WORLD
 const world={w:4000,h:4000};
-
-// CAMERA
 const cam={x:0,y:0};
+
+let running=false;
 
 // PLAYER
 let player={
@@ -109,20 +131,18 @@ addEventListener("keyup",e=>keys[e.key.toLowerCase()]=false);
 
 // FOOD
 const food=[];
-for(let i=0;i<700;i++) food.push(spawnFood());
-
+for(let i=0;i<600;i++) food.push(spawnFood());
 function spawnFood(){
   return {x:Math.random()*world.w,y:Math.random()*world.h,r:3};
 }
 
 // NAMES
 const names=["Shadow","Pixel","Nova","Blaze","King","Noob","Ghost","Ultra","Pro","Xx"];
-
 function randName(){
-  return names[Math.floor(Math.random()*names.length)] + Math.floor(Math.random()*99);
+  return names[Math.floor(Math.random()*names.length)]+Math.floor(Math.random()*99);
 }
 
-// BOTS (20 ONLY)
+// BOTS (20)
 const bots=[];
 for(let i=0;i<20;i++) bots.push(makeBot());
 
@@ -144,17 +164,18 @@ function start(){
   player.name=document.getElementById("name").value||randName();
   player.color=document.getElementById("color").value;
   document.getElementById("menu").style.display="none";
+  running=true;
   loop();
 }
 
-// UTILS
+// UTIL
 function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 function size(m){return 5+Math.sqrt(m)*3;}
 
 // PLAYER
 function updatePlayer(){
-  let ax=0,ay=0;
 
+  let ax=0,ay=0;
   let sp=0.5+size(player.mass)*0.01;
 
   if(keys["w"]||keys["arrowup"]) ay-=sp;
@@ -180,7 +201,6 @@ function updatePlayer(){
 
   for(let i=bots.length-1;i>=0;i--){
     let b=bots[i];
-
     let ps=size(player.mass);
     let bs=size(b.mass);
 
@@ -198,7 +218,7 @@ function updatePlayer(){
   }
 }
 
-// BOT AI (RADIUS + SMART HUNT/FLEE)
+// BOT AI (SMOOTH + RADIUS LOGIC)
 function updateBots(){
 
   const R=500;
@@ -275,19 +295,21 @@ function updateBots(){
 }
 
 // CAMERA
-function updateCam(){
+function camUpdate(){
   cam.x+=(player.x-innerWidth/2-cam.x)*0.08;
   cam.y+=(player.y-innerHeight/2-cam.y)*0.08;
 }
 
 // DRAW
 function draw(){
-  ctx.fillStyle="#050518";
+
+  ctx.fillStyle="#050514";
   ctx.fillRect(0,0,c.width,c.height);
 
   ctx.save();
   ctx.translate(-cam.x,-cam.y);
 
+  // food
   ctx.fillStyle="red";
   for(let f of food){
     ctx.beginPath();
@@ -295,6 +317,7 @@ function draw(){
     ctx.fill();
   }
 
+  // bots
   for(let b of bots){
     ctx.fillStyle=b.color;
     ctx.beginPath();
@@ -307,6 +330,7 @@ function draw(){
     ctx.fillText(b.name,b.x,b.y);
   }
 
+  // player
   ctx.fillStyle=player.color;
   ctx.beginPath();
   ctx.arc(player.x,player.y,size(player.mass),0,Math.PI*2);
@@ -323,7 +347,7 @@ function draw(){
 }
 
 // LEADERBOARD
-function leaderboard(){
+function lb(){
   let list=[...bots,player]
     .sort((a,b)=>b.mass-a.mass)
     .slice(0,10);
@@ -335,11 +359,14 @@ function leaderboard(){
 
 // LOOP
 function loop(){
+  if(!running) return;
+
   updatePlayer();
   updateBots();
-  updateCam();
-  leaderboard();
+  camUpdate();
+  lb();
   draw();
+
   requestAnimationFrame(loop);
 }
 </script>
