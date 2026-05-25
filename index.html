@@ -5,17 +5,17 @@
 <title>Playdex IO</title>
 
 <style>
-body {
+body{
   margin:0;
   overflow:hidden;
-  background:#070716;
+  background:#060617;
   font-family:Arial;
 }
 
-canvas { display:block; }
+canvas{display:block;}
 
 /* MENU */
-#menu {
+#menu{
   position:absolute;
   width:100%;
   height:100%;
@@ -27,15 +27,15 @@ canvas { display:block; }
   color:white;
 }
 
-input {
+input,select{
   padding:10px;
-  margin:5px;
-  border-radius:8px;
+  margin:6px;
   border:none;
+  border-radius:8px;
   text-align:center;
 }
 
-button {
+button{
   padding:12px 25px;
   border:none;
   border-radius:10px;
@@ -44,7 +44,7 @@ button {
 }
 
 /* HUD */
-#hud {
+#hud{
   position:absolute;
   top:10px;
   left:10px;
@@ -52,15 +52,15 @@ button {
 }
 
 /* LEADERBOARD */
-#lb {
+#lb{
   position:absolute;
   top:10px;
   right:10px;
-  background:rgba(0,0,0,0.4);
+  width:180px;
   padding:10px;
+  background:rgba(0,0,0,0.4);
   border-radius:10px;
   color:white;
-  width:180px;
 }
 </style>
 </head>
@@ -73,7 +73,7 @@ button {
   <input id="name" placeholder="Enter name">
   <input type="color" id="color" value="#00ff00">
 
-  <button onclick="startGame()">Start</button>
+  <button onclick="start()">Start Game</button>
 </div>
 
 <div id="hud"></div>
@@ -88,11 +88,10 @@ const ctx=c.getContext("2d");
 c.width=innerWidth;
 c.height=innerHeight;
 
-// WORLD
-const world={w:3500,h:3500};
-
-// CAMERA
+const world={w:4000,h:4000};
 const cam={x:0,y:0};
+
+let running=false;
 
 // PLAYER
 let player={
@@ -116,22 +115,22 @@ function spawnFood(){
   return {x:Math.random()*world.w,y:Math.random()*world.h,r:3};
 }
 
-// NAME SYSTEM
-const names=["Shadow","Pixel","Nova","Blaze","King","Noob","Ghost","Ultra","Lil","Pro"];
+// NAMES
+const names=["Shadow","Pixel","Nova","Blaze","King","Noob","Ghost","Ultra","Pro","Xx"];
 
 function randName(){
-  return names[Math.floor(Math.random()*names.length)] + Math.floor(Math.random()*99);
+  return names[Math.floor(Math.random()*names.length)]+Math.floor(Math.random()*99);
 }
 
-// BOT LIMIT = 20
+// BOTS (20 ONLY)
 const bots=[];
-for(let i=0;i<20;i++) bots.push(createBot());
+for(let i=0;i<20;i++) bots.push(makeBot());
 
-function createBot(){
-  return {
+function makeBot(){
+  return{
     x:Math.random()*world.w,
     y:Math.random()*world.h,
-    mass:5+Math.random()*80, // BIG OR SMALL START
+    mass:5+Math.random()*80,
     speed:1.2+Math.random(),
     name:randName(),
     color:`hsl(${Math.random()*360},70%,60%)`
@@ -139,11 +138,12 @@ function createBot(){
 }
 
 // START
-function startGame(){
+function start(){
   player.name=document.getElementById("name").value||randName();
   player.color=document.getElementById("color").value;
 
   document.getElementById("menu").style.display="none";
+  running=true;
   loop();
 }
 
@@ -153,7 +153,6 @@ function size(m){return 5+Math.sqrt(m)*3;}
 
 // PLAYER
 function updatePlayer(){
-
   let sp=4;
 
   if(keys["w"]||keys["arrowup"]) player.y-=sp;
@@ -164,7 +163,6 @@ function updatePlayer(){
   player.x=Math.max(0,Math.min(world.w,player.x));
   player.y=Math.max(0,Math.min(world.h,player.y));
 
-  // eat food
   for(let i=food.length-1;i>=0;i--){
     if(dist(player,food[i])<size(player.mass)){
       player.mass++;
@@ -172,23 +170,19 @@ function updatePlayer(){
     }
   }
 
-  // PLAYER vs BOTS (FIXED RULES)
   for(let i=bots.length-1;i>=0;i--){
     let b=bots[i];
 
-    let pS=size(player.mass);
-    let bS=size(b.mass);
-    let d=dist(player,b);
+    let ps=size(player.mass);
+    let bs=size(b.mass);
 
-    // player eats bot
-    if(pS>bS*1.15 && d<pS){
+    if(ps>bs*1.2 && dist(player,b)<ps){
       player.mass+=b.mass*0.8;
       bots.splice(i,1);
-      bots.push(createBot());
+      bots.push(makeBot());
     }
 
-    // bot eats player
-    if(bS>pS*1.15 && d<bS){
+    if(bs>ps*1.2 && dist(player,b)<bs){
       player.mass=20;
       player.x=world.w/2;
       player.y=world.h/2;
@@ -196,51 +190,30 @@ function updatePlayer(){
   }
 }
 
-// BOT AI (REAL IO LOGIC)
+// BOT AI (HUNT + FLEE)
 function updateBots(){
-
   const R=450;
 
   for(let b of bots){
 
-    let bS=size(b.mass);
+    let bs=size(b.mass);
 
     let target=null;
     let threat=null;
 
-    let bestT=99999;
-    let bestH=99999;
-
-    // scan bots
     for(let o of bots){
       if(o===b) continue;
 
       let d=dist(b,o);
-      let oS=size(o.mass);
 
-      // hunt smaller
-      if(bS>oS*1.15 && d<R && d<bestT){
-        target=o;
-        bestT=d;
-      }
-
-      // flee bigger
-      if(oS>bS*1.15 && d<R && d<bestH){
-        threat=o;
-        bestH=d;
-      }
+      if(bs>size(o.mass)*1.2 && d<R) target=o;
+      if(size(o.mass)>bs*1.2 && d<R) threat=o;
     }
 
-    // player interaction
     let pd=dist(b,player);
 
-    if(size(player.mass)<bS*0.85 && pd<R){
-      if(pd<bestT){ target=player; bestT=pd; }
-    }
-
-    if(size(player.mass)>bS*1.15 && pd<R){
-      if(pd<bestH){ threat=player; bestH=pd; }
-    }
+    if(bs>size(player.mass)*1.2 && pd<R) target=player;
+    if(size(player.mass)>bs*1.2 && pd<R) threat=player;
 
     let tx=b.x,ty=b.y;
 
@@ -248,35 +221,22 @@ function updateBots(){
       let a=Math.atan2(b.y-threat.y,b.x-threat.x);
       tx=b.x+Math.cos(a)*120;
       ty=b.y+Math.sin(a)*120;
-    } else if(target){
+    }else if(target){
       tx=target.x;
       ty=target.y;
-    } else {
-      tx+=Math.random()*10-5;
-      ty+=Math.random()*10-5;
+    }else{
+      tx+=Math.random()*20-10;
+      ty+=Math.random()*20-10;
     }
 
     let a=Math.atan2(ty-b.y,tx-b.x);
     b.x+=Math.cos(a)*b.speed;
     b.y+=Math.sin(a)*b.speed;
 
-    // eat food
     for(let i=food.length-1;i>=0;i--){
-      if(dist(b,food[i])<bS){
+      if(dist(b,food[i])<bs){
         b.mass+=0.5;
         food[i]=spawnFood();
-      }
-    }
-
-    // eat bots
-    for(let i=bots.length-1;i>=0;i--){
-      let o=bots[i];
-      if(o===b) continue;
-
-      if(bS>size(o.mass)*1.15 && dist(b,o)<bS){
-        b.mass+=o.mass*0.7;
-        bots.splice(i,1);
-        bots.push(createBot());
       }
     }
   }
@@ -291,13 +251,13 @@ function updateCam(){
 // DRAW
 function draw(){
 
-  ctx.fillStyle="#070716";
+  ctx.fillStyle="#060617";
   ctx.fillRect(0,0,c.width,c.height);
 
   ctx.save();
   ctx.translate(-cam.x,-cam.y);
 
-  // FOOD
+  // food
   ctx.fillStyle="red";
   for(let f of food){
     ctx.beginPath();
@@ -305,13 +265,11 @@ function draw(){
     ctx.fill();
   }
 
-  // BOTS
+  // bots
   for(let b of bots){
-    let s=size(b.mass);
-
     ctx.fillStyle=b.color;
     ctx.beginPath();
-    ctx.arc(b.x,b.y,s,0,Math.PI*2);
+    ctx.arc(b.x,b.y,size(b.mass),0,Math.PI*2);
     ctx.fill();
 
     ctx.fillStyle="white";
@@ -320,16 +278,13 @@ function draw(){
     ctx.fillText(b.name,b.x,b.y);
   }
 
-  // PLAYER
-  let ps=size(player.mass);
-
+  // player
   ctx.fillStyle=player.color;
   ctx.beginPath();
-  ctx.arc(player.x,player.y,ps,0,Math.PI*2);
+  ctx.arc(player.x,player.y,size(player.mass),0,Math.PI*2);
   ctx.fill();
 
   ctx.fillStyle="white";
-  ctx.textAlign="center";
   ctx.font="14px Arial";
   ctx.fillText(player.name,player.x,player.y);
 
@@ -340,8 +295,7 @@ function draw(){
 }
 
 // LEADERBOARD
-function lb(){
-
+function leaderboard(){
   let list=[...bots,player]
     .sort((a,b)=>b.mass-a.mass)
     .slice(0,10);
@@ -353,11 +307,14 @@ function lb(){
 
 // LOOP
 function loop(){
+  if(!running) return;
+
   updatePlayer();
   updateBots();
   updateCam();
-  lb();
+  leaderboard();
   draw();
+
   requestAnimationFrame(loop);
 }
 </script>
