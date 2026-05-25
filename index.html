@@ -15,7 +15,7 @@ body {
 canvas { display: block; }
 
 /* MENU */
-#menu, #pauseMenu {
+#menu {
   position: absolute;
   width: 100%;
   height: 100%;
@@ -27,6 +27,14 @@ canvas { display: block; }
   color: white;
 }
 
+input {
+  padding: 10px;
+  font-size: 18px;
+  border-radius: 8px;
+  border: none;
+  text-align: center;
+}
+
 button {
   margin-top: 10px;
   padding: 12px 25px;
@@ -36,20 +44,12 @@ button {
   cursor: pointer;
 }
 
-input {
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-  text-align: center;
-}
-
 /* HUD */
 #hud {
   position: absolute;
   top: 10px;
   left: 10px;
   color: white;
-  font-size: 16px;
 }
 
 /* LEADERBOARD */
@@ -61,7 +61,7 @@ input {
   background: rgba(0,0,0,0.4);
   padding: 10px;
   border-radius: 10px;
-  width: 180px;
+  width: 200px;
 }
 </style>
 </head>
@@ -70,14 +70,8 @@ input {
 
 <div id="menu">
   <h1>PLAYDEX IO</h1>
-  <input id="nameInput" placeholder="Name">
+  <input id="nameInput" placeholder="Enter name">
   <button onclick="startGame()">Start</button>
-</div>
-
-<div id="pauseMenu" style="display:none;">
-  <h1>Paused</h1>
-  <button onclick="resumeGame()">Resume</button>
-  <button onclick="exitGame()">Exit to Menu</button>
 </div>
 
 <div id="hud"></div>
@@ -92,13 +86,13 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// WORLD
 const world = { w: 4000, h: 4000 };
+
+// CAMERA
 const cam = { x: 0, y: 0 };
 
-let running = false;
-let paused = false;
-
-// PLAYER
+// PLAYER (ALWAYS EXISTS)
 let player = {
   x: 2000,
   y: 2000,
@@ -110,7 +104,7 @@ let player = {
 
 // FOOD
 const foods = [];
-for (let i = 0; i < 600; i++) spawnFood();
+for (let i = 0; i < 800; i++) spawnFood();
 
 function spawnFood() {
   foods.push({
@@ -120,73 +114,53 @@ function spawnFood() {
   });
 }
 
-// BOTS
-const bots = [];
-for (let i = 0; i < 12; i++) bots.push(createBot());
+// NAME SYSTEM (FUNNY + REALISTIC)
+const first = ["Noob", "King", "xX", "Shadow", "Lil", "Big", "Pro", "Dank", "Mr", "Sir", "Ultra"];
+const second = ["Gamer", "Slayer", "Potato", "Sniper", "Cat", "Dog", "Bean", "Lord", "Wizard", "Man"];
 
-function createBot() {
-  return {
+function randomName() {
+  return first[Math.floor(Math.random()*first.length)] +
+         second[Math.floor(Math.random()*second.length)] +
+         Math.floor(Math.random()*99);
+}
+
+// BOTS (50 PLAYERS)
+const bots = [];
+for (let i = 0; i < 50; i++) {
+  bots.push({
     x: Math.random() * world.w,
     y: Math.random() * world.h,
     mass: 10 + Math.random() * 40,
     speed: 1.5 + Math.random(),
-    name: "Bot_" + Math.floor(Math.random() * 999)
-  };
+    name: randomName()
+  });
 }
 
 // INPUT
 const keys = {};
-window.addEventListener("keydown", e => {
-  keys[e.key.toLowerCase()] = true;
-
-  if (e.key === "Escape") togglePause();
-});
+window.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
 window.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+let running = false;
 
 // START
 function startGame() {
   let n = document.getElementById("nameInput").value;
-  player.name = n || "Player_" + Math.floor(Math.random() * 999);
+  player.name = n || randomName();
 
   document.getElementById("menu").style.display = "none";
   running = true;
   loop();
 }
 
-function resumeGame() {
-  paused = false;
-  document.getElementById("pauseMenu").style.display = "none";
-}
-
-function exitGame() {
-  location.reload();
-}
-
-function togglePause() {
-  if (!running) return;
-  paused = !paused;
-
-  document.getElementById("pauseMenu").style.display =
-    paused ? "flex" : "none";
-}
-
-// UTIL
+// DIST
 function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
 function size(m){ return 5 + Math.sqrt(m)*3; }
 
-// PLAYER UPDATE (STAMINA + SPEED BOOST)
+// PLAYER UPDATE (ALWAYS DRAWN + WORKS)
 function updatePlayer() {
 
   let sp = player.speed;
-
-  if ((keys["shift"] || keys[" "]) && player.stamina > 0) {
-    sp *= 1.8;
-    player.stamina -= 0.7;
-  } else {
-    player.stamina += 0.3;
-  }
-
-  player.stamina = Math.max(0, Math.min(100, player.stamina));
 
   if (keys["w"] || keys["arrowup"]) player.y -= sp;
   if (keys["s"] || keys["arrowdown"]) player.y += sp;
@@ -196,24 +170,29 @@ function updatePlayer() {
   player.x = Math.max(0, Math.min(world.w, player.x));
   player.y = Math.max(0, Math.min(world.h, player.y));
 
+  // FOOD
   for (let i = foods.length - 1; i >= 0; i--) {
     if (dist(player, foods[i]) < size(player.mass)) {
       player.mass++;
-      foods[i] = spawnFood(), foods.splice(i,1);
+      foods[i] = {
+        x: Math.random()*world.w,
+        y: Math.random()*world.h,
+        r: 3
+      };
     }
   }
 
-  // PLAYER EATS / DIES
+  // PLAYER VS BOTS
   for (let i = bots.length - 1; i >= 0; i--) {
     let b = bots[i];
 
-    if (size(player.mass) > size(b.mass) * 1.2 && dist(player,b) < size(player.mass)) {
+    if (size(player.mass) > size(b.mass)*1.2 && dist(player,b) < size(player.mass)) {
       player.mass += b.mass * 0.8;
       bots.splice(i,1);
       bots.push(createBot());
     }
 
-    if (size(b.mass) > size(player.mass) * 1.2 && dist(player,b) < size(b.mass)) {
+    if (size(b.mass) > size(player.mass)*1.2 && dist(player,b) < size(b.mass)) {
       player.mass = 20;
       player.x = 2000;
       player.y = 2000;
@@ -222,64 +201,68 @@ function updatePlayer() {
   }
 }
 
-// BOT AI (simple smart)
-function updateBots() {
-  for (let b of bots) {
+// CREATE BOT (used for respawn)
+function createBot(){
+  return {
+    x: Math.random()*world.w,
+    y: Math.random()*world.h,
+    mass: 10 + Math.random()*40,
+    speed: 1.5 + Math.random(),
+    name: randomName()
+  };
+}
 
+// BOT AI (simple smart)
+function updateBots(){
+  for(let b of bots){
     let target = foods[0];
 
-    for (let f of foods) {
-      if (dist(b,f) < dist(b,target)) target = f;
+    for(let f of foods){
+      if(dist(b,f) < dist(b,target)) target = f;
     }
 
     let a = Math.atan2(target.y-b.y, target.x-b.x);
     b.x += Math.cos(a)*b.speed;
     b.y += Math.sin(a)*b.speed;
 
-    for (let i = foods.length-1;i>=0;i--) {
-      if (dist(b,foods[i]) < size(b.mass)) {
+    // eat food
+    for(let i=foods.length-1;i>=0;i--){
+      if(dist(b,foods[i]) < size(b.mass)){
         b.mass++;
-        foods.splice(i,1);
-        foods.push(spawnFood());
+        foods[i] = {
+          x:Math.random()*world.w,
+          y:Math.random()*world.h,
+          r:3
+        };
       }
     }
   }
 }
 
 // CAMERA
-const camSpeed = 0.08;
-function updateCamera() {
-  cam.x += (player.x - innerWidth/2 - cam.x) * camSpeed;
-  cam.y += (player.y - innerHeight/2 - cam.y) * camSpeed;
+function updateCamera(){
+  cam.x += (player.x - innerWidth/2 - cam.x)*0.08;
+  cam.y += (player.y - innerHeight/2 - cam.y)*0.08;
 }
 
-// LEADERBOARD
-function updateLeaderboard() {
-  let list = [...bots, player]
-    .sort((a,b)=>b.mass-a.mass)
-    .slice(0,10);
-
-  document.getElementById("leaderboard").innerHTML =
-    "<b>TOP 10</b><br>" +
-    list.map((p,i)=> `${i+1}. ${p.name||"Player"} (${Math.floor(p.mass)})`).join("<br>");
-}
-
-// DRAW
-function draw() {
+// DRAW (PLAYER FIXED HERE)
+function draw(){
   ctx.fillStyle="#050510";
   ctx.fillRect(0,0,canvas.width,canvas.height);
 
   ctx.save();
   ctx.translate(-cam.x,-cam.y);
 
-  for (let f of foods) {
+  // FOOD
+  for(let f of foods){
     ctx.fillStyle="red";
     ctx.beginPath();
     ctx.arc(f.x,f.y,f.r,0,Math.PI*2);
     ctx.fill();
   }
 
-  for (let b of bots) {
+  // BOTS
+  for(let b of bots){
     ctx.fillStyle="cyan";
     ctx.beginPath();
     ctx.arc(b.x,b.y,size(b.mass),0,Math.PI*2);
@@ -287,33 +270,46 @@ function draw() {
 
     ctx.fillStyle="white";
     ctx.font="12px Arial";
-    ctx.fillText(b.name,b.x-10,b.y-15);
+    ctx.fillText(b.name,b.x-15,b.y-15);
   }
 
+  // PLAYER (FIXED + ALWAYS VISIBLE)
   ctx.fillStyle="lime";
   ctx.beginPath();
   ctx.arc(player.x,player.y,size(player.mass),0,Math.PI*2);
   ctx.fill();
 
   ctx.fillStyle="white";
-  ctx.fillText(player.name,player.x-10,player.y-15);
+  ctx.font="14px Arial";
+  ctx.fillText(player.name,player.x-20,player.y-20);
 
   ctx.restore();
 
   document.getElementById("hud").innerHTML =
-    `Mass: ${Math.floor(player.mass)} | Stamina: ${Math.floor(player.stamina)}`;
+    `Mass: ${Math.floor(player.mass)}`;
+}
+
+// LEADERBOARD
+function updateLeaderboard(){
+  let list = [...bots, player]
+    .sort((a,b)=>b.mass-a.mass)
+    .slice(0,10);
+
+  document.getElementById("leaderboard").innerHTML =
+    "<b>TOP 10</b><br>" +
+    list.map((p,i)=>`${i+1}. ${p.name} (${Math.floor(p.mass)})`).join("<br>");
 }
 
 // LOOP
-function loop() {
-  if (!running) return;
-  if (!paused) {
-    updatePlayer();
-    updateBots();
-    updateCamera();
-    updateLeaderboard();
-    draw();
-  }
+function loop(){
+  if(!running) return;
+
+  updatePlayer();
+  updateBots();
+  updateCamera();
+  updateLeaderboard();
+  draw();
+
   requestAnimationFrame(loop);
 }
 </script>
